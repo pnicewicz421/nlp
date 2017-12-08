@@ -50,9 +50,20 @@ Adjusted_Zero_Prob <- log(1 / denominator_BiGram)
 # Use backoff model for bigrams
 # Get second word from bigrams
 
+twowords <- twowords[which(nchar(twowords)>0)]
+
+
 srchstr <- paste0("[[:blank:]]")
-pickin <- grep(srchstr, twowords, useBytes=TRUE)
-secondwords <- substr(twowords, nchar(pickin) + 1, stop=nchar(pickin)) 
+twowords <- twowords[grep(srchstr, twowords)]
+
+pickin <- regexpr(srchstr, twowords, useBytes=TRUE, perl=TRUE)
+pickin <- pickin[pickin > 0]
+
+secondwords <- substr(twowords, pickin + 1, stop=nchar(twowords)) 
+
+
+# How many Unigrams are not in Secondwords?
+UniGram$tokens[secondwords %in% UniGram$tokens]
 
 
 # 3-gram
