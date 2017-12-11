@@ -11,13 +11,13 @@ UniGram$Prob <- UniGram$Freq / denominator_UniGram
 p <- barplot(head(onewords, n = 50), las=2, space=1, col="green")
 
 # 2-gram
-twogramblog <- ngram(blogsample, 2)
-twogramnews <- ngram(newsample, 2)
-twogramtwitter <- ngram(twittersample, 2)
+#twogramblog <- ngram(blogsample, 2)
+#twogramnews <- ngram(newsample, 2)
+#twogramtwitter <- ngram(twittersample, 2)
 
-twowords <- c(twogramblog, twogramnews, twogramtwitter)
+#twowords <- c(twogramblog, twogramnews, twogramtwitter)
+twowords <- ngram(sample, 2)
 twowordtable <- sort(table(twowords), decreasing=T)
-
 
 p <- barplot(head(twowords, n = 50), las=2, space=1, col="green")
 
@@ -25,6 +25,7 @@ BiGram <- as.data.frame(twowordtable)
 
 # Unadjusted Prob
 denom <- sum(BiGram$Freq)
+
 BiGram$Prob <- BiGram$Freq / denom
 
 #Add one smoothing
@@ -52,7 +53,6 @@ Adjusted_Zero_Prob <- log(1 / denominator_BiGram)
 
 twowords <- twowords[which(nchar(twowords)>0)]
 
-
 srchstr <- paste0("[[:blank:]]")
 twowords <- twowords[grep(srchstr, twowords)]
 
@@ -61,10 +61,14 @@ pickin <- pickin[pickin > 0]
 
 secondwords <- substr(twowords, pickin + 1, stop=nchar(twowords)) 
 
+# Number to shoot for
+NumZeroProbs <- length(unique(tokens)) - length(unique(secondwords))
+ZeroProbTokens <- unique(tokens)[!(unique(tokens) %in% unique(secondwords))]
 
-# How many Unigrams are not in Secondwords?
-UniGram$tokens[secondwords %in% UniGram$tokens]
+ZeroProbTokens <- as.data.frame(ZeroProbTokens)
 
+ZeroProbTokens$Freq <- UniGram[match(ZeroProbTokens$ZeroProbTokens,
+                                     UniGram$tokens), 2]
 
 # 3-gram
 threegramblog <- ngram(blogsample, 3)
