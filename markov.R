@@ -12,7 +12,6 @@ NumberOfWords <- function(samp) {
     csps
 }
 
-
 history <- readline(prompt="Enter words (two or one): ")
 history <- paste0(str_trim(history), " ")
 
@@ -24,11 +23,7 @@ srchstr <- paste0("^", history)
 #how many words?
 numwords <- NumberOfWords(history)
 
-
-
 pickin <- grep(srchstr, twowords, useBytes=TRUE)
-
-
 
 universe <- twowords[pickin]
 

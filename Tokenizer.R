@@ -1,13 +1,15 @@
 # Load libraries
 library(readr)
 library(stringr)
+library(stringi)
 
 # Splice contractions and punctuation
 splice <- function (samp) {
     conts <- "n[’']t|[’']s|[’']d|[’']ve|[’']re|[’']m|[’']ll"
     puncts <- "^[[:punct:]]|[[:punct:]]{2,}|[[:punct:]][[:blank:]]|[[:blank:]][[:punct:]]|[\"]|[[:punct:]]$"
     fixed <- gsub(paste0("(", conts, "|", puncts, ")"), " \\1 ", samp)
-    str_trim(fixed)
+    fixed <- stri_enc_toutf8(fixed, TRUE, TRUE)
+    fixed <- str_trim(fixed)
 }
 
 # Divide up into tokens (i.e., 1-grams)
@@ -21,17 +23,18 @@ tokenize <- function(samp) {
 
 # Divide up into n-grams 
 ngram_helper <- function (samp, n) {
-    samp <- str_trim(gsub("\\s+", " ", samp))
+    #samp <- stri_enc_toutf8(samp, TRUE, TRUE)
+    #samp <- str_trim(gsub("\\s+", " ", samp))
     sps <- gregexpr(" ", samp)[[1]]
     csps <- length(sps[which(sps>0)]) + 1
-    if (csps > n & n >=2) {
-
+    if (csps >= n & n >=2) {
+        
         reptext <- "[[:space:]]+[[:alnum:][:punct:]]+"
         addt <- paste(replicate(n-1, reptext), collapse = "")
         sp <- paste0("([[:alnum:][:punct:]]+", 
-                         addt, ")")
+                     addt, ")")
         sps <- gsub(sp, "[\\1]", samp)
-
+        
         ngrams <- unlist(str_extract_all(sps, "\\[.*\\]"))
         ngrams <- unlist(strsplit(ngrams, split="\\[|\\]"))
         ngrams <- ngrams[-which(ngrams==""|ngrams==" ")]
@@ -72,7 +75,7 @@ ennews <- read_lines(enfilenews)
 entwitter <- read_lines(enfiletwitter)
 
 # Take samples
-samplesize = 0.05
+samplesize = 1
 
 set.seed(2243)
 enblogsample <- sample(enblogs, samplesize*length(enblogs))
@@ -80,14 +83,19 @@ ennewssample <- sample(ennews, samplesize*length(ennews))
 entwittersample <- sample(entwitter, samplesize*length(entwitter))
 badwords <- read_lines("badwords.txt")
 
-# Splice
+# Splice and Process
 blogsample <- splice(enblogsample)
-newsample <- splice(ennewssample)
 twittersample <- splice(entwittersample)
+newsample <- splice(ennewssample)
 sample <- c(blogsample, newsample, twittersample)
+sample <- deprofane(sample, badwords)
+sample <- RemoveWhiteSpace(sample)
+#sample <- to(lowersample)
 
-# tokenize and deprofane
-blogtokens <- deprofane(tokenize(blogsample), badwords)
-newstokens <- deprofane(tokenize(newsample), badwords)
-twittertokens <- deprofane(tokenize(twittersample), badwords)
-tokens <- c(blogtokens, newstokens, twittertokens)
+#
+#megasample <- list()
+## Pre-load lists 
+#for (i in 1:25) {
+ #   ngram_sample <- ngram(sample, i)
+ #   megasample[[i]] <- ngram_sample
+#}
