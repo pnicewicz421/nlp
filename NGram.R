@@ -1,0 +1,142 @@
+library(varhandle)
+library(stringr)
+library(dplyr)
+
+NumberOfWords <- function(samp) {
+    samp <- str_trim(gsub("\\s+", " ", samp))
+    sps <- gregexpr(" ", samp)[[1]]
+    csps <- length(sps[which(sps>0)])+1
+    cspss
+}
+
+GetLastWord <- function(phrase){
+    word(phrase, -1)
+}
+
+CutFirstWord <- function(phrase){
+    word(phrase, 2, NumberOfWords(phrase))
+}
+
+RemoveWhiteSpace <- function(phrase){
+    gsub("\\s+", " ", phrase)
+}
+
+# Load with no pre-loading
+
+process_gram_no_preloading <- function(phrase) {
+    # Count number of words
+    srchstr <- paste0(phrase, "[[:space:]][[:alnum:]]+")
+    poss <- grep(srchstr, sample, useBytes=TRUE, value=TRUE)
+    possl <- str_match(poss, srchstr)
+    
+    if (length(possl) > 1) {
+        # passedl
+        freq <- as.data.frame(sort(table(possl), decreasing=TRUE))[1,1]
+        result <- GetLastWord(freq)
+    }  else if (length(possl) == 1){
+        freq <- row.names(as.data.frame(sort(table(possl), decreasing=TRUE)))[1]
+        result <- GetLastWord(freq)
+    }
+        else if (length(possl) == 0) {
+        phrase <- CutFirstWord(phrase)
+        if (NumberOfWords(phrase) > 0) {
+            result <- process_gram_no_preloading(phrase)
+        } else {
+            result <- NULL
+        }
+    }
+        result
+}
+
+GetAllWords <- function(phrase) {
+    # Count number of words
+    srchstr <- paste0(phrase, "[[:space:]][[:alnum:]]+")
+    poss <- grep(srchstr, sample, useBytes=TRUE, value=TRUE)
+    possl <- str_match(poss, srchstr)
+    
+    if (length(possl) > 1) {
+        # passedl
+        freq <- as.data.frame(sort(table(possl), decreasing=TRUE))
+    }  else if (length(possl) == 1){
+        freq <- row.names(as.data.frame(sort(table(possl), decreasing=TRUE)))
+    } else if (length(possl) == 0) {
+        phrase <- CutFirstWord(phrase)
+        if (NumberOfWords(phrase) > 0) {
+            freq <- GetAllWords(phrase)
+        } else {
+            freq <- NULL
+        }
+    }
+    freq
+}
+
+PredictWordsWithContext <- function(phrase, threshold=5) {
+    # Count number of words
+    srchstr <- paste0(phrase, "[[:space:]][[:alnum:]]+")
+    poss <- grep(srchstr, sample, useBytes=TRUE, value=TRUE)
+    possl <- str_match(poss, srchstr)
+    
+    #poss
+    
+    if (length(possl) > threshold) {
+        # look at the context
+        tokens <- unique(tokenize(phrase))
+        srchstr <- gsub(" ", "|", phrase)
+        
+        a <- grep(srchstr, sample)
+        conts <- gregexpr(srchstr, sample, fxed=TRUE,us)
+        
+        
+        freq <- as.data.frame(sort(table(possl), decreasing=TRUE))
+    }  else if (length(possl) == 1){
+        freq <- row.names(as.data.frame(sort(table(possl), decreasing=TRUE)))
+    } else if (length(possl) == 0) {
+        phrase <- CutFirstWord(phrase)
+        if (NumberOfWords(phrase) > 0) {
+            freq <- GetAllWords(phrase)
+        } else {
+            freq <- NULL
+        }
+    }
+    freq
+}
+
+phrase <- "case of"
+a <- GetAllWords(phrase)
+
+phrase <- "mean the"
+b <- GetAllWords(phrase)
+
+phrase <- "me the"
+c <- GetAllWords(phrase)
+
+phrase <- "but the"
+d <- GetAllWords(phrase)
+
+phrase <- "at the"
+e <- GetAllWords(phrase)
+
+phrase <- "on my"
+f <- GetAllWords(phrase)
+
+phrase <- "quite some"
+g <- GetAllWords(phrase)
+
+phrase <- "his little"
+h <- GetAllWords(phrase)
+
+phrase <- "during the"
+i <- GetAllWords(phrase)
+
+phrase <- "must be"
+j <- GetAllWords(phrase)
+
+
+phrase <- "Very early observations on the Bills game: Offense still struggling but the"
+#phrase <- deprofane(phrase, badwords)
+phrase <- splice(phrase)
+phrase <- RemoveWhiteSpace(phrase)
+#phrase <- tolower(phrase)
+process_gram_no_preloading(phrase)
+
+
