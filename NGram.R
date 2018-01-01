@@ -5,8 +5,8 @@ library(dplyr)
 NumberOfWords <- function(samp) {
     samp <- str_trim(gsub("\\s+", " ", samp))
     sps <- gregexpr(" ", samp)[[1]]
-    csps <- length(sps[which(sps>0)])+1
-    cspss
+    csps <- length(sps[which(sps>0)]) + 1
+    csps
 }
 
 GetLastWord <- function(phrase){
@@ -37,7 +37,7 @@ process_gram_no_preloading <- function(phrase) {
         freq <- row.names(as.data.frame(sort(table(possl), decreasing=TRUE)))[1]
         result <- GetLastWord(freq)
     }
-        else if (length(possl) == 0) {
+    else if (length(possl) == 0) {
         phrase <- CutFirstWord(phrase)
         if (NumberOfWords(phrase) > 0) {
             result <- process_gram_no_preloading(phrase)
@@ -45,7 +45,7 @@ process_gram_no_preloading <- function(phrase) {
             result <- NULL
         }
     }
-        result
+    result
 }
 
 GetAllWords <- function(phrase) {
@@ -71,8 +71,12 @@ GetAllWords <- function(phrase) {
 }
 
 PredictWordsWithContext <- function(phrase, threshold=5) {
-    # Count number of words
+    
+    # Get the last two words to use as ngram
+    #ngram <- GetLastWords(phrase, 2)
+    
     srchstr <- paste0(phrase, "[[:space:]][[:alnum:]]+")
+    
     poss <- grep(srchstr, sample, useBytes=TRUE, value=TRUE)
     possl <- str_match(poss, srchstr)
     
@@ -80,12 +84,11 @@ PredictWordsWithContext <- function(phrase, threshold=5) {
     
     if (length(possl) > threshold) {
         # look at the context
-        tokens <- unique(tokenize(phrase))
         srchstr <- gsub(" ", "|", phrase)
+        conts <- gregexpr(srchstr, sample, useBytes = TRUE)
+        NumberOfWords(conts)
         
-        a <- grep(srchstr, sample)
-        conts <- gregexpr(srchstr, sample, fxed=TRUE,us)
-        
+        #which(conts[1]>0)
         
         freq <- as.data.frame(sort(table(possl), decreasing=TRUE))
     }  else if (length(possl) == 1){
