@@ -7,103 +7,211 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+```
+## Introduction
 
+This report shows progress report on my model using Natural Language Processing 
+to predict subsequent words in a phrase. The model relies heavily on the 
+tidytext library, which is a convenient and efficient R library focused on text
+mining and has the capability of creating tokens and n-grams. 
+
+The steps below show the building of the model, including data preparation,
+exploratory analysis, and plans for developing a prediction algorithm and Shiny 
+app.
+
+## Data Processing
+First, I load the files containing texts from English-language blogs, news, and Twitter.
+I combine the texts into one corpus and use 20% of the overall material as a training set.
+```{r echo=TRUE}
 # Load libraries
 library(readr)
-library(stringr)
-library(stringi)
+library(dplyr)
+library(tidytext)
+library(ggplot2)
+library(tidyr)
+library(igraph)
+library(ggraph)
 
-# Splice contractions and punctuation
-splice <- function (samp) {
-    conts <- "n[’']t|[’']s|[’']d|[’']ve|[’']re|[’']m|[’']ll"
-    puncts <- "^[[:punct:]]|[[:punct:]]{2,}|[[:punct:]][[:blank:]]|[[:blank:]][[:punct:]]|[\"]|[[:punct:]]$"
-    fixed <- gsub(paste0("(", conts, "|", puncts, ")"), " \\1 ", samp)
-    fixed <- stri_enc_toutf8(fixed, TRUE, TRUE)
-    fixed <- str_trim(fixed)
-}
+# Load stop words
+data(stop_words)
 
-# Divide up into tokens (i.e., 1-grams)
-tokenize <- function(samp) {
-    tokens <- strsplit(samp, split=" ")
-    tokens <- unlist(tokens)
-    # Remove empty elements
-    tokens <- tokens[which(nchar(tokens)>0)]
-    return (tokens)
-}
-
-# Divide up into n-grams 
-ngram_helper <- function (samp, n) {
-    #samp <- stri_enc_toutf8(samp, TRUE, TRUE)
-    #samp <- str_trim(gsub("\\s+", " ", samp))
-    sps <- gregexpr(" ", samp)[[1]]
-    csps <- length(sps[which(sps>0)]) + 1
-    if (csps >= n & n >=2) {
-        
-        reptext <- "[[:space:]]+[[:alnum:][:punct:]]+"
-        addt <- paste(replicate(n-1, reptext), collapse = "")
-        sp <- paste0("([[:alnum:][:punct:]]+", 
-                     addt, ")")
-        sps <- gsub(sp, "[\\1]", samp)
-        
-        ngrams <- unlist(str_extract_all(sps, "\\[.*\\]"))
-        ngrams <- unlist(strsplit(ngrams, split="\\[|\\]"))
-        ngrams <- ngrams[-which(ngrams==""|ngrams==" ")]
-        ngrams <- gsub("^\\s+|\\s+$", "", ngrams)
-    } else if (n==1) {
-        return (tokenize(samp))
-    } else {
-        return (NULL)    
-    }
-}
-
-ngram <- function (samp, n){
-    for (i in 1:n) {
-        if (i > 1) {
-            offset <- regexpr("[[:space:]]", samp)[1]
-            samp <- substr(samp, start=offset+1, stop=nchar(samp))
-            result <- c(result, ngram_helper(samp, n))
-        } else {
-            result <- ngram_helper(samp, n)
-        }
-    }
-    result
-}
-
-# Profanity filtering
-deprofane <- function(file, badwords){
-    file <- file[-which(file %in% badwords)]
-    file
-}
-
-# Load files
+# Get file names
 enfileblogs <- "en_US.blogs.txt"
 enfilenews <- "en_US.news.txt"
 enfiletwitter <- "en_US.twitter.txt"
 
+# Read files
 enblogs <- read_lines(enfileblogs)
 ennews <- read_lines(enfilenews)
 entwitter <- read_lines(enfiletwitter)
 
-# Splice and Process
-blogsample <- splice(enblogsample)
-twittersample <- splice(entwittersample)
-newsample <- splice(ennewssample)
-sample <- c(blogsample, newsample, twittersample)
-sample <- deprofane(sample, badwords)
-sample <- RemoveWhiteSpace(sample)
+# Take samples
+samplesize = 0.2
+
+set.seed(2243)
+blogsample <- sample(enblogs, samplesize*length(enblogs))
+newssample <- sample(ennews, samplesize*length(ennews))
+twittersample <- sample(entwitter, samplesize*length(entwitter))
+
+# Convert samples to data frames
+blog_df <- data_frame(line = 1:length(blogsample), text=blogsample)
+news_df <- data_frame(line = 1:length(newssample), text=newssample)
+twitter_df <- data_frame(line = 1:length(twittersample), text=twittersample)
+```
+
+# Line Counts
+The training set has the following number of lines in each of the texts of the corpus:
+Blog sample: `r max(blog_df$line)`
+News sample: `r max(news_df$line)`
+Twitter sample: `r max(twitter_df$line)`
+
+## Tokenization and Frequency Counting
+Next, I combine the data frames from the three sources into one and convert the training set corpus to tokens and count the most frequent tokens. The process strips the corpus of all punctuation and makes all words lowercase. Because the corpus contains stop words which appear frequently throughout the document and the English language, I filter the stop words out.  I visualize the most frequent tokens (with both the stop words included and excluded).
+
+```{r echo=TRUE}
+# Convert data frames of samples to tokens
+blogtoken <- blog_df %>% unnest_tokens(word, text)
+newstoken <- news_df %>% unnest_tokens(word, text)
+twittertoken <- twitter_df %>% unnest_tokens(word, text)
+
+sample_df <- rbind(blog_df, news_df, twitter_df)
+sampletoken <- sample_df %>% unnest_tokens(word, text)
+
+# Count most common tokens / words
+commontokens <- sampletoken %>% count(word, sort = TRUE)
+commontokens_nostopwords <- commontokens %>% anti_join(stop_words)
+
+# Visualize most common tokens (with stop words)
+commontokens %>% 
+    filter(n > 200000) %>% 
+    mutate(word = reorder(word, n)) %>%
+    ggplot(aes(word, n)) +
+    geom_col() +
+    ggtitle("Most Common Tokens (Stop Words Included)") +
+    xlab('Number') + 
+    coord_flip()
+
+# Visualize most common tokens (without stop words)
+commontokens_nostopwords %>% 
+    filter(n > 15000) %>% 
+    mutate(word = reorder(word, n)) %>%
+    ggplot(aes(word, n)) +
+    geom_col() +
+    ggtitle("Most Common Tokens (Without Stop Words)") +
+    xlab('Number') + 
+    coord_flip()
+```
+  
+## Analyzing term frequency
+In addition to analyzing the number of words that appear in the corpus, perhaps a more useful measure
+is term frequency (tf), which is the ratio a particular token appears in the text as a whole.
+My training set is only 20% of the original corpus, and as a result my actual word counts are rather small compared to the whole corpus. If I divide each word count by the number of words in the text, I get a ratio that I am able to compare with different sample sizes.
+
+```{r echo=TRUE}
+# Add the tf, idf, and tf-idf terms to the token count 
+totalwords <- commontokens_nostopwords %>%
+    summarize(total=sum(n))
+totalwords <- as.integer(totalwords)
+totalwords <- rep(totalwords, dim(commontokens_nostopwords)[1])
+
+commontokens_nostopwords <- cbind(commontokens_nostopwords, totalwords)
+commontokens_nostopwords <- commontokens_nostopwords %>% mutate(tf=n/totalwords)
+head(commontokens_nostopwords, 25)
+```
+
+## Generating bigrams
+Now that I have created a list of tokens in the combined training set, I move on to
+create a data frame of bigrams (i.e., a set of two words that appear consecutively).
+Bigrams will be useful in the prediction algorithm as I can use the term frequency of 
+each bigram in the training set to determine the list of possible second words and their 
+probabilities given the first word. Because stop words (such as "the", "an", "that", "of") are much more frequent than other words, they increase the probability of appearing in the list of bigrams, and will similarly be excluded from this analysis.
+
+```{r echo=TRUE}
+# Generate bigrams
+bigrams <- sample_df %>%
+    unnest_tokens(bigram, text, token="ngrams", n = 2)
+
+# Get the counts with stop words included
+bigrams <- bigrams %>% count(bigram, sort=TRUE)
+
+# Seperate the bigram into two words
+bigrams_separated <- bigrams %>% 
+    separate(bigram, c("word1", "word2"), sep=" ")
+
+# Remove stop words from the bigrams
+bigrams_filtered <- bigrams_separated %>%
+    filter(!word1 %in% stop_words$word) %>%
+    filter(!word2 %in% stop_words$word)
+
+# Find the total number of bigrams
+totalbigrams <- bigrams_filtered %>%
+    summarize(total=sum(n))
+totalbigrams <- as.integer(totalbigrams)
+totalbigrams <- rep(totalbigrams, dim(bigrams_filtered)[1])
+
+# Find the term frequency
+bigrams <- cbind(bigrams_filtered, totalbigrams)
+bigrams <- bigrams %>% mutate(tf=n/totalbigrams)
+head(bigrams)
+```
+
+## Visualizing the bigrams
+It might be interesting to visualize the relationships between adjacent words that form bigrams. Rather than focusing on the most common bigrams, my goal here is to understand how many different words follow a common word (excluding stop words)
+and how many of those words are in turn followed by other words. 
+
+Converting the bigrams into graphs (with the words as nodes and edges as the connection between adjacent words) helps visually understand this relationship. These networks will have the advantage
+of seeing first words that are followed by many possible second words (which decreases the probability of each predicted word) and first words which a low list of possible second words.
+
+```{r echo=TRUE}
+# Generate an igraph object
+# Filter out by the most common bigrams
+
+bigram_graph <- bigrams %>%
+    filter (n > 350) %>%
+    graph_from_data_frame()
+
+# Generate the network graph using ggraph
+set.seed(3226)
+arrow <- grid::arrow(type="closed", length=unit(.15, "inches"))
+ggraph(bigram_graph, layout="fr") +
+    geom_edge_link(aes(edge_alpha=n), show.legend = FALSE, arrow=arrow) +
+    geom_node_point(color="blue", size=2) +
+    geom_node_text(aes(label=name), vjust=1, hjust=1) +
+    theme_void()
 ```
 
 
-```{r cars}
-summary(cars)
+## Generating trigrams
+It might be useful to use a trigram model (i.e., three words that appear next to each other) in addition to bigrams. The accuracy of a word that follows two adjacent words rather than just one might be higher, as long as the context of the test data set is similar to the training set.
+In the prediction model, I will try to use trigrams to predit the third word, and only if a particular trigram does not appear in the training set, the model will build probabilities based on bigrams.
+
+```{r echo=TRUE}
+trigrams <- sample_df %>%
+    unnest_tokens(trigram, text, token="ngrams", n=3) %>%
+    separate(trigram, c("word1", "word2", "word3"), sep=" ") %>%
+    filter(!word1 %in% stop_words$word,
+           !word2 %in% stop_words$word,
+           !word3 %in% stop_words$word) %>%
+    count(word1, word2, word3, sort=TRUE)
+
+totaltrigrams <- trigrams %>%
+    summarize(total=sum(n))
+totaltrigrams <- as.integer(totaltrigrams)
+totaltrigrams <- rep(totaltrigrams, dim(trigrams)[1])
+
+# Find the term frequency
+trigrams <- cbind(trigrams, totaltrigrams)
+trigrams <- trigrams %>% mutate(tf=n/totaltrigrams)
+head(trigrams)
 ```
 
-## Including Plots
+## Findings
+- The training set should not be too large (otherwise, processing speed is too slow). I had originally developed the training set with 60% of the data and have reduced it to 20%. While the absolute count of tokens in the sample has significantly decreased, the relative frequency (and rank) are similar. Nevertheless, the down sides of having a smaller sample are bias of the more common term (i.e., more common words in the sample having higher frequency than in the corpus) and a decrease in variance (i.e., the sample not containing or having a lower frequency for less common words than appears in the corpus). 
+-  The count and frequency of stop words signficantly outweighs other words in the text, which may obfuscate the probability that any two words appear closely in the corpus. For now, the model will take out stop words. I will review whether how to determine the list of stop words and whether it is appropriate to remove them from the model.
+- The bigram list shows the count and frequency of bigrams in the model and  between words and the visualization using a graph shows the strength of that relationship. Some relationships are more frequent (for example, "happy birthday", "st. louis", "1 2"), for which the model will be more accurate. 
+- The trigram list was extremely slow to generate. I will have to evaluate whether to use other methods to generate the trigrams.
 
-You can also embed plots, for example:
+## Future plans
+Combining the corpus, leaving out the stop words, creating tokens, bigrams, and tigrams, along with their count and term frequency are the first step to creating a succesful prediction model.
 
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+The term frequency of a trigram and bigram will determine the prediction for a word (with the use of a back-off model). However, I will have to account for phrases that do not appear in the training set and instances where the term frequency is low across many possible words.

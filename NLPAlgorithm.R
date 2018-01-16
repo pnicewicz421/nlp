@@ -7,6 +7,35 @@ library(tidyr)
 library(igraph)
 library(ggraph)
 
+#Word Manipulators
+NumberOfWords <- function(samp) {
+    samp <- str_trim(gsub("\\s+", " ", samp))
+    sps <- gregexpr(" ", samp)[[1]]
+    csps <- length(sps[which(sps>0)]) + 1
+    csps
+}
+
+GetLastWord <- function(phrase){
+    word(phrase, -1)
+}
+
+GetLastWords <- function(phrase, n){
+    word(phrase, -n)
+}
+
+GetWord <- function(phrase, n){
+    word(phrase, n)
+}
+
+CutFirstWord <- function(phrase){
+    word(phrase, 2, NumberOfWords(phrase))
+}
+
+RemoveWhiteSpace <- function(phrase){
+    gsub("\\s+", " ", phrase)
+}
+
+
 # Load stop words
 data(stop_words)
 
@@ -92,13 +121,13 @@ bigrams_filtered <- bigrams_separated %>%
     filter(!word2 %in% stop_words$word)
 
 # Find the total number of bigrams
-totalbigrams <- bigrams_filtered %>%
+totalbigrams <- bigrams_separated %>%
     summarize(total=sum(n))
 totalbigrams <- as.integer(totalbigrams)
-totalbigrams <- rep(totalbigrams, dim(bigrams_filtered)[1])
+totalbigrams <- rep(totalbigrams, dim(bigrams_separated)[1])
 
 # Find the term frequency
-bigrams <- cbind(bigrams_filtered, totalbigrams)
+bigrams <- cbind(bigrams_separated, totalbigrams)
 bigrams <- bigrams %>% mutate(tf=n/totalbigrams)
 head(bigrams)
 
@@ -121,9 +150,6 @@ ggraph(bigram_graph, layout="fr") +
 trigrams <- sample_df %>%
     unnest_tokens(trigram, text, token="ngrams", n=3) %>%
     separate(trigram, c("word1", "word2", "word3"), sep=" ") %>%
-    filter(!word1 %in% stop_words$word,
-           !word2 %in% stop_words$word,
-           !word3 %in% stop_words$word) %>%
     count(word1, word2, word3, sort=TRUE)
 
 totaltrigrams <- trigrams %>%
@@ -133,8 +159,19 @@ totaltrigrams <- rep(totaltrigrams, dim(trigrams)[1])
 
 # Find the term frequency
 trigrams <- cbind(trigrams, totaltrigrams)
-trigrams <- trigrams %>% mutate(tf=n/totaltrigrams)
+trigrams <- trigrams %tri>% mutate(tf=n/totaltrigrams)
 head(trigrams)
 
 #Take phrase <-
 phrase <- "When you breathe, I want to be the air for you. I'll be there for you, I'd live and I'd"
+
+#Build the model
+
+# phrase is cleaned up but I think I will keep the stop-words in there. Doesn't Swwift Key do that? In fact, no one on the coursera team ever talked about excluding stop-words.
+# They are best included in prediction, best excluded in topic analysis
+
+# start with phrase
+
+trytrigram <- GetLastWords(phrase, 2)
+cands <- trigrams[trigrams$word1==GetWord(phrase, 1) & trigrams$word2==GetWord(phrase, 2),]
+cands <- Get
