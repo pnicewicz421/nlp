@@ -2,6 +2,9 @@
 library(readr)
 library(stringr)
 library(stringi)
+library(varhandle)
+library(stringr)
+library(dplyr)
 
 # Splice contractions and punctuation
 splice <- function (samp) {
@@ -60,9 +63,71 @@ ngram <- function (samp, n){
 }
 
 # Profanity filtering
-deprofane <- function(file, badwords){
-    file <- file[-which(file %in% badwords)]
-    file
+deprofane <- function(phrase, badwords){
+    removeWords(phrase, badwords)
+}
+
+NumberOfWords <- function(samp) {
+    samp <- str_trim(gsub("\\s+", " ", samp))
+    sps <- gregexpr(" ", samp)[[1]]
+    csps <- length(sps[which(sps>0)]) + 1
+    csps
+}
+
+GetLastWord <- function(phrase){
+    word(phrase, -1)
+}
+
+GetLastWords <- function(phrase, number){
+    word(phrase, -number, -1)
+}
+
+CutFirstWord <- function(phrase){
+    word(phrase, 2, NumberOfWords(phrase))
+}
+
+RemoveWhiteSpace <- function(phrase){
+    gsub("\\s+", " ", phrase)
+}
+
+LowerCase <- function(phrase){
+    phrase <- stri_trans_tolower(phrase)
+}
+
+# Load with no pre-loading
+process_gram <- function(phrase) {
+    # Count number of words
+    if (NumberOfWords(phrase) > 5) {
+        phrase <- GetLastWords(phrase, 5)
+    }
+    srchstr <- paste0(phrase, "[[:space:]][[:alnum:]]+")
+    poss <- grep(srchstr, sample, useBytes=TRUE, value=TRUE)
+    possl <- str_match(poss, srchstr)
+    
+    if (length(possl) > 1) {
+        # passedl
+        freq <- as.data.frame(sort(table(possl), decreasing=TRUE))[1,1]
+        result <- GetLastWord(freq)
+    }  else if (length(possl) == 1){
+        freq <- row.names(as.data.frame(sort(table(possl), decreasing=TRUE)))[1]
+        result <- GetLastWord(freq)
+    }
+    else if (length(possl) == 0) {
+        phrase <- CutFirstWord(phrase)
+        if (NumberOfWords(phrase) > 0) {
+            result <- process_gram_no_preloading(phrase)
+        } else {
+            result <- NULL
+        }
+    }
+    result
+}
+
+preprocess_phrase <- function(phrase) {
+    phrase <- splice(phrase)
+    phrase <- deprofane(phrase, badwords)
+    phrase <- RemoveWhiteSpace(phrase)
+    phrase <- LowerCase(phrase)
 }
 
 # Load files
@@ -90,12 +155,6 @@ newsample <- splice(ennewssample)
 sample <- c(blogsample, newsample, twittersample)
 sample <- deprofane(sample, badwords)
 sample <- RemoveWhiteSpace(sample)
-#sample <- to(lowersample)
+sample <- LowerCase(sample)
 
-#
-#megasample <- list()
-## Pre-load lists 
-#for (i in 1:25) {
- #   ngram_sample <- ngram(sample, i)
- #   megasample[[i]] <- ngram_sample
-#}
+

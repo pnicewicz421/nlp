@@ -7,29 +7,72 @@ library(tidyr)
 library(igraph)
 library(ggraph)
 
+if (!require("pacman")) install.packages("pacman")
+pacman::p_load_gh("trinker/qdapDictionaries")
+data(contractions)
+
 library(readtext)
 library(quanteda)
+library(stringi)
+library(readr)
+library(tidytext)
+library(data.table)
+library(ngram)
 
 # Profanity filtering
-deprofane <- function(file, badwords="badwords.txt"){
-    file <- file[-which(file %in% badwords)]
-    file
-}
+badwords <- read_lines("badwords.txt")
 
 # Read files and put the in one corpus
-txts <- readtext("*en_US.*.txt", docvarsfrom="filenames")
-encorpus <- corpus(txts)
+
+
+#START OVER
+enfileblogs <- "en_US.blogs.txt"
+enfilenews <- "en_US.news.txt"
+enfiletwitter <- "en_US.twitter.txt"
+
+# Read files
+enblogs <- read_lines(enfileblogs)
+ennews <- read_lines(enfilenews)
+entwitter <- read_lines(enfiletwitter)
+
+# Take samples
+samplesize = 0.5
+
+set.seed(2243)
+blogsample <- sample(enblogs, samplesize*length(enblogs))
+newssample <- sample(ennews, samplesize*length(ennews))
+twittersample <- sample(entwitter, samplesize*length(entwitter))
+
+# Convert samples to data frames
+blog_df <- data_frame(line = 1:length(blogsample), text=blogsample)
+news_df <- data_frame(line = 1:length(newssample), text=newssample)
+twitter_df <- data_frame(line = 1:length(twittersample), text=twittersample)
+
+df <- rbind(blog_df, news_df, twitter_df)
+encorpus <- corpus(df)
 
 # Clean up
-try <- deprofane(encorpus)
+# Deprofane
+
+# Expand contractions
+
+texts(encorpus) <- stri_trans_tolower(texts(encorpus)) 
+
+texts(encorpus) <- stringi::stri_replace_all_fixed(texts(encorpus), 
+                                                   contractions$contraction,
+                                                   contractions$expanded,
+                                                   vectorize_all=FALSE)
+
+texts(encorpus) <- stringi::stri_replace_all_fixed(texts(encorpus), badwords, "",
+                                                    vectorize_all=FALSE)
+
 
 # Tokenize into individual tokens (unigrams)
-unigrams <- tokens(encorpus, remove_numbers = FALSE, remove_punct = TRUE,
-                   remove_separators = TRUE)
-bigrams <- tokens_ngrams(encorpus, n=2, concatenator=" ")
-trigrams <- tokens_ngrams(encorpus, n=3, concatenator=" ")
-fourgrams <- tokens_ngrams(encorpus, n=4, concatenator=" ")
-fivegrams <- tokens_ngrams(encorpus, n=5, concatenator=" ")
+unigrams <- tokens(texts(encorpus), remove_numbers = FALSE)
+bigrams <- tokens_ngrams(unigrams, n=2, concatenator=" ")
+trigrams <- tokens_ngrams(unigrams, n=3, concatenator=" ")
+fourgrams <- tokens_ngrams(unigrams, n=4, concatenator=" ")
+
     
 # Convert samples to data frames
 blog_df <- data_frame(line = 1:length(blogsample), text=blogsample)
