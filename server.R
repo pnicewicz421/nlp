@@ -10,7 +10,7 @@ shinyServer(function(input, output) {
     
     ## simulate data load
     observe({
-        source('prediction.R')
+        source('predictword.R')
         rv$setupComplete <- TRUE    
 
         ## the conditional panel reads this output
@@ -22,8 +22,7 @@ shinyServer(function(input, output) {
     })
     
     observeEvent(input$submit, {
-        phrase <- preprocess_phrase(input$phrase)
-        answer <- process_gram(phrase, sample)
+        answer <- process_gram(phrase)
         output$nextWord <- renderText({ answer })
     })
 })
