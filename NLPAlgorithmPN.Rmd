@@ -1,0 +1,69 @@
+---
+title: "Next Word App: The next frontier"
+date: 2/13/2018
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Next Word App
+
+This app allows users to predict the next word based on a phrase entered by the user. Try on your laptop, tablet, and/or smart phone.
+
+# Instructions
+
+- Go to the app
+- Type in phrase in the input box
+- Click "Submit"
+- See the predicted word
+
+## The Algorithm
+The algorithm uses a simple "stupid" back-off model that estimates the conditional probability of the predicted word given its history in the n-gram.
+
+First, the data has to be loaded from the RDS file
+
+For a phrase that is entered, the function:
+  
+- Trims white space on either side and remove extra spaces between words  
+- Makes the phrase lowercase  
+- If the phrase has more than four words, only takes the last four words  
+- If the phrase matches an entry in the data file, returns the last word in the n-gram (the predicted word)  
+- If the phrase does not match any entries in the data file, it runs the function again with the first word of the removed (backs off).  
+- If the phrase is one word and no matches were found, return "the" (the most frequently occuring word).  
+
+## Data preparation
+
+The following steps to prepare the data:  
+  
+- The English corpus was loaded, containing samples from Twitter, blogs, and the news.  
+- The corpus was made lower case  
+- Punctuation was removed (with the exception of the possessive "'s" and "-")  
+- White space in between words was removed  
+- N-grams containing 2 to 5 words were created  
+- The frequency of each ngram was calculated in column N  
+- The last word from each n-gram was separated and put into a new column (lastword).   
+- The first words without the last one was placed in a column called firstwords  
+- For each first words, only the row containing the max N was included  
+- The n-grams were merged  
+- Save as a Relational Database file (RDS)  
+ 
+  
+## Findings
+
+The most difficult part of creating this app was the creation of the n-grams and data processing.
+
+- Self-created tokenization and n-gram creation functions were too slow to handle the amount of data
+- The quanteda library, which depends on the tm library, offers a powerful ngram_tokens function to create ngrams. Creating a particular set of n-grams (2, 3) separately was the most efficient way.
+- The data.table library is much more efficient than using data.frames. Data.table allows for indexing which speeds up operations. Couting the frequencies, separating n-grams into firstwords and lastword, aking only the max frequency for each firstwords, and joining the resulting tables was much more efficient using data.table alone (rather than a combination of dplyr, plyr, or data.frame)
+- Storing the data in RDS vs. CSV compresses the data four times as much.
+
+## Next Steps
+
+Future plans include:
+
+- creating a suggested answer feature (which would add a proposed entry into the table)
+- correcting misspellings ("Did you mean?")
+- suggesting three answers at once 
+- building the app in different languages (Russian, Finnish, and German)
